@@ -1,0 +1,7 @@
+project_id = "gqwqqdaxudavefeszulq"
+
+[functions.ai-writing]
+verify_jwt = false
+
+[functions.doc-chat]
+verify_jwt = false
