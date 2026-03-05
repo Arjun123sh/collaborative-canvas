@@ -6,7 +6,7 @@ import {
 import type { Document } from "@/lib/documents";
 import { DocumentCard } from "@/components/DocumentCard";
 import {
-  Plus, Search, LayoutGrid, List, FileText, Sun, Moon, ArrowUpDown, Loader2,
+  Plus, Search, LayoutGrid, List, FileText, Sun, Moon, ArrowUpDown, Loader2, Table2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -62,12 +62,25 @@ export default function Dashboard() {
     return docs;
   }, [documents, search, sortKey]);
 
-  const handleCreate = async () => {
+  const handleCreate = async (fileType: string = "document") => {
     try {
-      const doc = await createDocument();
-      navigate(`/doc/${doc.id}`);
+      const doc = await createDocument(undefined, fileType);
+      if (fileType === "spreadsheet") {
+        navigate(`/sheet/${doc.id}`);
+      } else {
+        navigate(`/doc/${doc.id}`);
+      }
     } catch {
       toast.error("Failed to create document");
+    }
+  };
+
+  const handleOpen = (id: string) => {
+    const doc = documents.find(d => d.id === id);
+    if (doc?.file_type === "spreadsheet") {
+      navigate(`/sheet/${id}`);
+    } else {
+      navigate(`/doc/${id}`);
     }
   };
 
@@ -150,9 +163,21 @@ export default function Dashboard() {
               <Moon className="h-4 w-4" />
             )}
           </button>
-          <Button onClick={handleCreate} size="sm" className="gap-1.5">
-            <Plus className="h-4 w-4" /> New
-          </Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button size="sm" className="gap-1.5">
+                <Plus className="h-4 w-4" /> New
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={() => handleCreate("document")} className="gap-2 cursor-pointer">
+                <FileText className="h-4 w-4" /> Document
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => handleCreate("spreadsheet")} className="gap-2 cursor-pointer">
+                <Table2 className="h-4 w-4" /> Spreadsheet
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </header>
 
@@ -232,7 +257,7 @@ export default function Dashboard() {
               {search ? "Try a different search term" : "Create your first document to get started"}
             </p>
             {!search && (
-              <Button onClick={handleCreate} className="gap-1.5">
+              <Button onClick={() => handleCreate("document")} className="gap-1.5">
                 <Plus className="h-4 w-4" /> Create document
               </Button>
             )}
@@ -246,7 +271,7 @@ export default function Dashboard() {
                     key={doc.id}
                     document={doc}
                     view="grid"
-                    onOpen={(id) => navigate(`/doc/${id}`)}
+                    onOpen={handleOpen}
                     onDelete={handleDelete}
                     onRename={handleRename}
                     onDuplicate={handleDuplicate}
@@ -261,7 +286,7 @@ export default function Dashboard() {
                     key={doc.id}
                     document={doc}
                     view="list"
-                    onOpen={(id) => navigate(`/doc/${id}`)}
+                    onOpen={handleOpen}
                     onDelete={handleDelete}
                     onRename={handleRename}
                     onDuplicate={handleDuplicate}
