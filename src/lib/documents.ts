@@ -7,6 +7,8 @@ export interface Document {
   createdAt: Date;
   updatedAt: Date;
   emoji: string;
+  file_type: string;
+  spreadsheet_data?: any;
 }
 
 // Shape returned by Supabase (snake_case)
@@ -18,6 +20,8 @@ interface DbDocument {
   owner_id: string | null;
   created_at: string | null;
   updated_at: string | null;
+  file_type: string | null;
+  spreadsheet_data: any;
 }
 
 const EMOJIS = ["📄", "📝", "📋", "📑", "🗒️", "📓", "📔", "📒", "✏️", "🖊️"];
@@ -30,13 +34,15 @@ function toDocument(row: DbDocument): Document {
     emoji: row.emoji || "📄",
     createdAt: new Date(row.created_at || Date.now()),
     updatedAt: new Date(row.updated_at || Date.now()),
+    file_type: row.file_type || "document",
+    spreadsheet_data: row.spreadsheet_data,
   };
 }
 
 export async function getDocuments(): Promise<Document[]> {
   const { data, error } = await supabase
     .from("documents")
-    .select("id, title, content, emoji, owner_id, created_at, updated_at")
+    .select("id, title, content, emoji, owner_id, created_at, updated_at, file_type, spreadsheet_data")
     .order("updated_at", { ascending: false });
 
   if (error) {
@@ -49,7 +55,7 @@ export async function getDocuments(): Promise<Document[]> {
 export async function getDocument(id: string): Promise<Document | undefined> {
   const { data, error } = await supabase
     .from("documents")
-    .select("id, title, content, emoji, owner_id, created_at, updated_at")
+    .select("id, title, content, emoji, owner_id, created_at, updated_at, file_type, spreadsheet_data")
     .eq("id", id)
     .single();
 
@@ -60,17 +66,22 @@ export async function getDocument(id: string): Promise<Document | undefined> {
   return toDocument(data as DbDocument);
 }
 
-export async function createDocument(title?: string): Promise<Document> {
-  const emoji = EMOJIS[Math.floor(Math.random() * EMOJIS.length)];
+export async function createDocument(title?: string, fileType: string = "document"): Promise<Document> {
+  const emoji = fileType === "spreadsheet" ? "📊" : EMOJIS[Math.floor(Math.random() * EMOJIS.length)];
+  
+  // Get current user
+  const { data: { user } } = await supabase.auth.getUser();
+  
   const { data, error } = await supabase
     .from("documents")
     .insert({
-      title: title || "Untitled document",
+      title: title || (fileType === "spreadsheet" ? "Untitled spreadsheet" : "Untitled document"),
       content: "",
       emoji,
-      owner_id: null,
-    })
-    .select("id, title, content, emoji, owner_id, created_at, updated_at")
+      owner_id: user?.id ?? "",
+      file_type: fileType,
+    } as any)
+    .select("id, title, content, emoji, owner_id, created_at, updated_at, file_type, spreadsheet_data")
     .single();
 
   if (error || !data) {
@@ -82,13 +93,13 @@ export async function createDocument(title?: string): Promise<Document> {
 
 export async function updateDocument(
   id: string,
-  updates: Partial<Pick<Document, "title" | "content" | "emoji">>
+  updates: Partial<Pick<Document, "title" | "content" | "emoji" | "spreadsheet_data">>
 ): Promise<Document | undefined> {
   const { data, error } = await supabase
     .from("documents")
-    .update(updates)
+    .update(updates as any)
     .eq("id", id)
-    .select("id, title, content, emoji, owner_id, created_at, updated_at")
+    .select("id, title, content, emoji, owner_id, created_at, updated_at, file_type, spreadsheet_data")
     .single();
 
   if (error || !data) {
@@ -114,15 +125,18 @@ export async function duplicateDocument(id: string): Promise<Document | undefine
   const original = await getDocument(id);
   if (!original) return undefined;
 
+  const { data: { user } } = await supabase.auth.getUser();
   const { data, error } = await supabase
     .from("documents")
     .insert({
       title: `${original.title} (Copy)`,
       content: original.content,
       emoji: original.emoji,
-      owner_id: null,
-    })
-    .select("id, title, content, emoji, owner_id, created_at, updated_at")
+      owner_id: user?.id ?? "",
+      file_type: original.file_type,
+      spreadsheet_data: original.spreadsheet_data,
+    } as any)
+    .select("id, title, content, emoji, owner_id, created_at, updated_at, file_type, spreadsheet_data")
     .single();
 
   if (error || !data) {
